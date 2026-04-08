@@ -6,7 +6,7 @@ REQ003: Authorization checks
 """
 
 from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthCredentials
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError, jwt
 from typing import Optional
 import os
@@ -20,7 +20,7 @@ JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "your-secret-key-change-in-producti
 
 
 async def get_current_contact_person(
-    credentials: HTTPAuthCredentials = Depends(security),
+    credentials: HTTPAuthorizationCredentials = Depends(security),
 ) -> str:
     """
     Extract and validate JWT token, return contact person ID
