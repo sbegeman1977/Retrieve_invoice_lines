@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from src.services.invoice_service import InvoiceService
+from src.repositories.invoice_repository import InvoiceRepository
 from src.schemas.invoice import InvoiceLinesResponse
 from src.exceptions import (
     InvoiceNotFoundException,
@@ -69,8 +70,9 @@ async def get_invoice_lines(
     ```
     """
     try:
-        # Create service instance
-        service = InvoiceService(db)
+        # Create repository and service instances
+        repository = InvoiceRepository(db)
+        service = InvoiceService(repository)
 
         # Call business logic
         result = service.get_invoice_lines(

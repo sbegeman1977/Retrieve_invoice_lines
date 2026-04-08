@@ -5,7 +5,6 @@ REQ001-REQ008: Business rules and authorization logic
 Technisch ontwerp: Service layer
 """
 
-from sqlalchemy.orm import Session
 from typing import Optional
 import math
 
@@ -26,10 +25,13 @@ class InvoiceService:
     Handles business logic, authorization, and pagination
     """
 
-    def __init__(self, db: Session):
-        """Initialize service with database session and repository"""
-        self.repository = InvoiceRepository(db)
-        self.db = db
+    def __init__(self, repository: InvoiceRepository):
+        """Initialize service with injected repository
+
+        Args:
+            repository: InvoiceRepository instance for data access
+        """
+        self.repository = repository
 
     def get_invoice_lines(
         self,
