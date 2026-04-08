@@ -27,7 +27,7 @@ class _EngineProxy:
                 DATABASE_URL,
                 echo=os.getenv("SQL_ECHO", "False").lower() == "true",
                 pool_pre_ping=True,  # Verify connections before using
-                pool_size=10,
+                pool_size=20,
                 max_overflow=20,
             )
         return self._engine
