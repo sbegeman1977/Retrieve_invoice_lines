@@ -20,9 +20,9 @@ from src.schemas.invoice import InvoiceLineResponse, InvoiceLinesResponse
 
 
 @pytest.fixture
-def client():
-    """Create test client"""
-    return TestClient(app)
+def client(client_with_mocked_auth):
+    """Use the client with mocked authentication and database"""
+    return client_with_mocked_auth
 
 
 @pytest.fixture

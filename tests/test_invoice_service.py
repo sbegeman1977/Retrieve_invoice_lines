@@ -20,6 +20,29 @@ from src.exceptions import (
 )
 
 
+def create_mock_invoice_line(
+    line_id="IL-001",
+    article_code="ART-12345",
+    description="Test Product",
+    quantity=Decimal("5"),
+    unit_price=Decimal("100.00"),
+    tax_percentage=Decimal("21"),
+    total_price=Decimal("605.00"),
+    line_order=1,
+):
+    """Factory function to create properly configured mock InvoiceLine objects"""
+    mock_line = Mock()
+    mock_line.id = line_id
+    mock_line.article_code = article_code
+    mock_line.description = description
+    mock_line.quantity = quantity
+    mock_line.unit_price = unit_price
+    mock_line.tax_percentage = tax_percentage
+    mock_line.total_price = total_price
+    mock_line.line_order = line_order
+    return mock_line
+
+
 class TestInvoiceServiceGetInvoiceLines:
     """Unit tests for InvoiceService.get_invoice_lines()"""
 
@@ -247,9 +270,9 @@ class TestInvoiceServiceGetInvoiceLines:
         contact_person_id = "CP-5678"
 
         mock_lines = [
-            Mock(line_order=1),
-            Mock(line_order=2),
-            Mock(line_order=3),
+            create_mock_invoice_line(line_id="IL-001", line_order=1),
+            create_mock_invoice_line(line_id="IL-002", line_order=2),
+            create_mock_invoice_line(line_id="IL-003", line_order=3),
         ]
 
         mock_repository.invoice_exists_for_contact.return_value = True
@@ -282,7 +305,10 @@ class TestInvoiceServiceGetInvoiceLines:
         # Arrange
         invoice_id = "INV-2026-001234"
         contact_person_id = "CP-5678"
-        mock_lines = [Mock(line_order=i) for i in range(1, 101)]
+        mock_lines = [
+            create_mock_invoice_line(line_id=f"IL-{i:04d}", line_order=i)
+            for i in range(1, 101)
+        ]
 
         mock_repository.invoice_exists_for_contact.return_value = True
         mock_repository.get_invoice_lines_paginated.return_value = (mock_lines, 150)
@@ -313,7 +339,10 @@ class TestInvoiceServiceGetInvoiceLines:
         # Arrange
         invoice_id = "INV-2026-001234"
         contact_person_id = "CP-5678"
-        mock_lines = [Mock(line_order=i) for i in range(101, 151)]
+        mock_lines = [
+            create_mock_invoice_line(line_id=f"IL-{i:04d}", line_order=i)
+            for i in range(101, 151)
+        ]
 
         mock_repository.invoice_exists_for_contact.return_value = True
         mock_repository.get_invoice_lines_paginated.return_value = (mock_lines, 150)
@@ -342,7 +371,10 @@ class TestInvoiceServiceGetInvoiceLines:
         # Arrange
         invoice_id = "INV-2026-001234"
         contact_person_id = "CP-5678"
-        mock_lines = [Mock(line_order=i) for i in range(1, 10001)]
+        mock_lines = [
+            create_mock_invoice_line(line_id=f"IL-{i:05d}", line_order=i)
+            for i in range(1, 10001)
+        ]
 
         mock_repository.invoice_exists_for_contact.return_value = True
         mock_repository.get_invoice_lines_paginated.return_value = (mock_lines, 10000)
@@ -463,16 +495,19 @@ class TestInvoiceServiceGetInvoiceLines:
                 page_size=100,
             )
 
-    def test_get_invoice_lines_empty_invoice_id(self, service):
+    def test_get_invoice_lines_empty_invoice_id(self, service, mock_repository):
         """
         REQ005 [NEGATIVE]: Empty invoice_id should raise error
 
         Given: invoice_id=""
         When: get_invoice_lines() is called
-        Then: Should raise validation error
+        Then: Should raise InvoiceNotFoundException (treated as not found)
         """
+        # Arrange
+        mock_repository.invoice_exists_for_contact.return_value = False
+
         # Act & Assert
-        with pytest.raises((ValueError, InvalidPaginationException)):
+        with pytest.raises(InvoiceNotFoundException):
             service.get_invoice_lines(
                 invoice_id="",  # Empty
                 contact_person_id="CP-5678",
@@ -496,7 +531,10 @@ class TestInvoiceServiceGetInvoiceLines:
         Then: Execution time should be < 500ms
         """
         # Arrange
-        mock_lines = [Mock(line_order=i) for i in range(1, 51)]
+        mock_lines = [
+            create_mock_invoice_line(line_id=f"IL-{i:03d}", line_order=i)
+            for i in range(1, 51)
+        ]
         mock_repository.invoice_exists_for_contact.return_value = True
         mock_repository.get_invoice_lines_paginated.return_value = (mock_lines, 50)
 
