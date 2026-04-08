@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Claude Multi-Agent Workflow</title>
+<style>
+  :root {
+    --purple-light: #EEEDFE;
+    --purple-mid: #7F77DD;
+    --purple-dark: #3C3489;
+    --teal-light: #E1F5EE;
+    --teal-mid: #1D9E75;
+    --teal-dark: #085041;
+    --blue-light: #E6F1FB;
+    --blue-mid: #378ADD;
+    --blue-dark: #0C447C;
+    --coral-light: #FAECE7;
+    --coral-mid: #D85A30;
+    --coral-dark: #712B13;
+    --green-light: #EAF3DE;
+    --green-mid: #639922;
+    --green-dark: #27500A;
+    --amber-light: #FAEEDA;
+    --amber-mid: #BA7517;
+    --amber-dark: #633806;
+    --gray-light: #F1EFE8;
+    --gray-mid: #888780;
+    --gray-dark: #444441;
+    --bg: #f8f7f4;
+    --surface: #ffffff;
+    --text: #1a1a18;
+    --text-muted: #5f5e5a;
+    --border: rgba(0,0,0,0.1);
+    --radius: 10px;
+    --shadow: 0 2px 12px rgba(0,0,0,0.08);
+    --shadow-hover: 0 6px 24px rgba(0,0,0,0.14);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 32px 20px;
+  }
+
+  h1 {
+    font-size: 22px;
+    font-weight: 600;
+    text-align: center;
+    margin-bottom: 6px;
+    color: var(--text);
+  }
+
+  .subtitle {
+    text-align: center;
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-bottom: 36px;
+  }
+
+  .diagram {
+    max-width: 760px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+  }
+
+  /* NODE STYLES */
+  .node {
+    border-radius: var(--radius);
+    padding: 10px 20px;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+    text-align: center;
+    border: 1.5px solid transparent;
+    position: relative;
+  }
+  .node:hover { transform: translateY(-2px); box-shadow: var(--shadow-hover); }
+  .node:active { transform: translateY(0); }
+
+  .node .label { font-size: 14px; font-weight: 600; }
+  .node .sub   { font-size: 11px; margin-top: 2px; }
+
+  .node-purple { background: var(--purple-light); border-color: var(--purple-mid); }
+  .node-purple .label { color: var(--purple-dark); }
+  .node-purple .sub   { color: var(--purple-mid); }
+
+  .node-teal { background: var(--teal-light); border-color: var(--teal-mid); }
+  .node-teal .label { color: var(--teal-dark); }
+  .node-teal .sub   { color: var(--teal-mid); }
+
+  .node-blue { background: var(--blue-light); border-color: var(--blue-mid); }
+  .node-blue .label { color: var(--blue-dark); }
+  .node-blue .sub   { color: var(--blue-mid); }
+
+  .node-coral { background: var(--coral-light); border-color: var(--coral-mid); }
+  .node-coral .label { color: var(--coral-dark); }
+  .node-coral .sub   { color: var(--coral-mid); }
+
+  .node-green { background: var(--green-light); border-color: var(--green-mid); }
+  .node-green .label { color: var(--green-dark); }
+  .node-green .sub   { color: var(--green-mid); }
+
+  .node-gray { background: var(--gray-light); border-color: var(--gray-mid); }
+  .node-gray .label { color: var(--gray-dark); }
+  .node-gray .sub   { color: var(--gray-mid); }
+
+  .node-amber { background: var(--amber-light); border-color: var(--amber-mid); }
+  .node-amber .label { color: var(--amber-dark); }
+  .node-amber .sub   { color: var(--amber-mid); }
+
+  /* LAYOUT HELPERS */
+  .wide { width: 280px; }
+  .medium { width: 220px; }
+  .small { width: 130px; }
+
+  .arrow-down {
+    width: 2px;
+    height: 24px;
+    background: var(--border);
+    position: relative;
+    margin: 0 auto;
+  }
+  .arrow-down::after {
+    content: '';
+    position: absolute;
+    bottom: -6px;
+    left: -4px;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 7px solid var(--gray-mid);
+  }
+
+  .arrow-down.dashed {
+    background: repeating-linear-gradient(to bottom, var(--gray-mid) 0, var(--gray-mid) 4px, transparent 4px, transparent 8px);
+  }
+
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    width: 100%;
+    max-width: 560px;
+    justify-content: space-between;
+  }
+
+  .row-arrows {
+    display: flex;
+    width: 100%;
+    max-width: 560px;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+
+  .arrow-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 220px;
+  }
+
+  .h-arrow {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    padding: 0 8px;
+  }
+  .h-arrow-line {
+    flex: 1;
+    height: 2px;
+    background: var(--border);
+    position: relative;
+  }
+  .h-arrow-line::after {
+    content: '';
+    position: absolute;
+    right: -6px;
+    top: -4px;
+    border-top: 5px solid transparent;
+    border-bottom: 5px solid transparent;
+    border-left: 7px solid var(--gray-mid);
+  }
+
+  .section-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    width: 100%;
+    max-width: 560px;
+    padding: 16px 0 8px;
+    border-top: 1px solid var(--border);
+    margin-top: 8px;
+  }
+
+  .conditional-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+    width: 100%;
+    max-width: 700px;
+    margin-top: 4px;
+  }
+
+  .legend {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-top: 32px;
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .legend-dot {
+    width: 12px; height: 12px;
+    border-radius: 3px;
+  }
+
+  /* MODAL */
+  .overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+  }
+  .overlay.active { display: flex; }
+
+  .modal {
+    background: var(--surface);
+    border-radius: 14px;
+    padding: 28px;
+    max-width: 440px;
+    width: 90%;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+    position: relative;
+    animation: pop 0.18s ease;
+  }
+  @keyframes pop {
+    from { transform: scale(0.92); opacity: 0; }
+    to   { transform: scale(1);    opacity: 1; }
+  }
+
+  .modal-badge {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    padding: 3px 9px;
+    border-radius: 20px;
+    margin-bottom: 10px;
+  }
+
+  .modal h2 {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 10px;
+    color: var(--text);
+  }
+
+  .modal p {
+    font-size: 14px;
+    line-height: 1.65;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+  }
+
+  .modal ul {
+    padding-left: 18px;
+    font-size: 14px;
+    color: var(--text-muted);
+    line-height: 1.7;
+    margin-bottom: 10px;
+  }
+
+  .modal-output {
+    background: var(--bg);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 8px;
+    border-left: 3px solid var(--border);
+  }
+  .modal-output strong { color: var(--text); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 3px; }
+
+  .close-btn {
+    position: absolute;
+    top: 14px; right: 16px;
+    background: none;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    color: var(--text-muted);
+    line-height: 1;
+  }
+  .close-btn:hover { color: var(--text); }
+</style>
+</head>
+<body>
+
+<h1>Claude Multi-Agent Workflow</h1>
+<p class="subtitle">Klik op een agent voor meer uitleg</p>
+
+<div class="diagram">
+
+  <!-- COORDINATOR -->
+  <div class="node node-purple wide" onclick="show('coordinator')">
+    <div class="label">Coordinator</div>
+    <div class="sub">Bepaalt volgorde en agents</div>
+  </div>
+
+  <div class="arrow-down dashed"></div>
+
+  <!-- DISCOVERY -->
+  <div class="node node-gray medium" onclick="show('discovery')">
+    <div class="label">Discovery agent</div>
+    <div class="sub">Alleen bij onduidelijke input</div>
+  </div>
+
+  <div class="arrow-down"></div>
+
+  <div class="section-label">Hoofdworkflow</div>
+
+  <!-- ROW: PO + Architect -->
+  <div class="row">
+    <div class="node node-teal medium" onclick="show('po')">
+      <div class="label">Product owner</div>
+      <div class="sub">Functioneel ontwerp + requirements</div>
+    </div>
+    <div class="h-arrow"><div class="h-arrow-line"></div></div>
+    <div class="node node-teal medium" onclick="show('architect')">
+      <div class="label">Architect</div>
+      <div class="sub">Technisch ontwerp</div>
+    </div>
+  </div>
+
+  <div class="row-arrows">
+    <div class="arrow-col"><div class="arrow-down"></div></div>
+    <div class="arrow-col"><div class="arrow-down"></div></div>
+  </div>
+
+  <!-- ROW: Dependency + Unit test -->
+  <div class="row">
+    <div class="node node-teal medium" onclick="show('dependency')">
+      <div class="label">Dependency controller</div>
+      <div class="sub">Veilige en actuele libraries</div>
+    </div>
+    <div class="h-arrow"><div class="h-arrow-line"></div></div>
+    <div class="node node-teal medium" onclick="show('unittest')">
+      <div class="label">Unit test engineer</div>
+      <div class="sub">Tests op basis van requirements</div>
+    </div>
+  </div>
+
+  <div class="row-arrows">
+    <div class="arrow-col"><div class="arrow-down"></div></div>
+    <div class="arrow-col"><div class="arrow-down"></div></div>
+  </div>
+
+  <!-- DEVELOPER -->
+  <div class="node node-blue wide" onclick="show('developer')">
+    <div class="label">Developer</div>
+    <div class="sub">Bouwt op basis van ontwerp + tests</div>
+  </div>
+
+  <div class="arrow-down"></div>
+
+  <!-- ROW: Verification + Tester -->
+  <div class="row">
+    <div class="node node-teal medium" onclick="show('verification')">
+      <div class="label">Verification engineer</div>
+      <div class="sub">Runtime gedrag + foutoorzaken</div>
+    </div>
+    <div class="h-arrow"><div class="h-arrow-line"></div></div>
+    <div class="node node-teal medium" onclick="show('tester')">
+      <div class="label">Tester</div>
+      <div class="sub">Functionele scenario's + regressie</div>
+    </div>
+  </div>
+
+  <div class="row-arrows">
+    <div class="arrow-col"><div class="arrow-down"></div></div>
+    <div class="arrow-col"><div class="arrow-down"></div></div>
+  </div>
+
+  <!-- ROW: Automation + Security -->
+  <div class="row">
+    <div class="node node-teal medium" onclick="show('automation')">
+      <div class="label">Automation walkthrough</div>
+      <div class="sub">Simuleert volledige gebruikersflow</div>
+    </div>
+    <div class="h-arrow"><div class="h-arrow-line"></div></div>
+    <div class="node node-coral medium" onclick="show('security')">
+      <div class="label">Security officer</div>
+      <div class="sub">Beveiliging + secrets + dependencies</div>
+    </div>
+  </div>
+
+  <div class="row-arrows">
+    <div class="arrow-col"><div class="arrow-down"></div></div>
+    <div class="arrow-col"><div class="arrow-down"></div></div>
+  </div>
+
+  <!-- ROW: Reviewer + Performance -->
+  <div class="row">
+    <div class="node node-teal medium" onclick="show('reviewer')">
+      <div class="label">Reviewer</div>
+      <div class="sub">Onderhoudbaarheid + overbodige code</div>
+    </div>
+    <div class="h-arrow"><div class="h-arrow-line"></div></div>
+    <div class="node node-teal medium" onclick="show('performance')">
+      <div class="label">Performance analyst</div>
+      <div class="sub">Performance + schaalbaarheid</div>
+    </div>
+  </div>
+
+  <div class="row-arrows">
+    <div class="arrow-col"><div class="arrow-down"></div></div>
+    <div class="arrow-col"><div class="arrow-down"></div></div>
+  </div>
+
+  <!-- ROW: Docs + Coverage -->
+  <div class="row">
+    <div class="node node-teal medium" onclick="show('docs')">
+      <div class="label">Documentation agent</div>
+      <div class="sub">Handleiding + release docs</div>
+    </div>
+    <div class="h-arrow"><div class="h-arrow-line"></div></div>
+    <div class="node node-teal medium" onclick="show('coverage')">
+      <div class="label">Coverage controller</div>
+      <div class="sub">Testdekking controleren</div>
+    </div>
+  </div>
+
+  <div class="arrow-down"></div>
+
+  <!-- RELEASE MANAGER -->
+  <div class="node node-green wide" onclick="show('release')">
+    <div class="label">Release manager</div>
+    <div class="sub">Akkoord voor Git + release</div>
+  </div>
+
+  <div class="section-label">Conditionele agents — alleen bij trigger</div>
+
+  <div class="conditional-row">
+    <div class="node node-amber small" onclick="show('process')">
+      <div class="label">Process impr.</div>
+      <div class="sub">Bij herhaalde fouten</div>
+    </div>
+    <div class="node node-amber small" onclick="show('cleanup')">
+      <div class="label">Cleanup</div>
+      <div class="sub">Overbodige code</div>
+    </div>
+    <div class="node node-amber small" onclick="show('migration')">
+      <div class="label">Migration</div>
+      <div class="sub">Major upgrades</div>
+    </div>
+    <div class="node node-amber small" onclick="show('incident')">
+      <div class="label">Incident analyst</div>
+      <div class="sub">Onverwachte fouten</div>
+    </div>
+    <div class="node node-amber small" onclick="show('ux')">
+      <div class="label">UX validator</div>
+      <div class="sub">Nieuwe schermen</div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:var(--purple-mid)"></div>Coördinatie</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--teal-mid)"></div>Hoofdstroom</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--blue-mid)"></div>Bouwen</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--coral-mid)"></div>Beveiliging</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--green-mid)"></div>Release</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--amber-mid)"></div>Conditioneel</div>
+  </div>
+
+</div>
+
+<!-- MODAL OVERLAY -->
+<div class="overlay" id="overlay" onclick="closeModal(event)">
+  <div class="modal" id="modal">
+    <button class="close-btn" onclick="closeAll()">×</button>
+    <div class="modal-badge" id="modal-badge"></div>
+    <h2 id="modal-title"></h2>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<script>
+const data = {
+  coordinator: {
+    badge: 'Startpunt', color: '#7F77DD', bg: '#EEEDFE',
+    title: 'Coordinator',
+    body: `<p>De coordinator is altijd het startpunt van elk proces. Geen enkele agent mag zelfstandig starten buiten de coordinator om.</p>
+    <p>De coordinator bepaalt:</p>
+    <ul>
+      <li>Welke agent nodig is</li>
+      <li>In welke volgorde gewerkt wordt</li>
+      <li>Welke audits eerst gelezen moeten worden</li>
+      <li>Of conditionele specialisten nodig zijn</li>
+    </ul>
+    <p>Hij gebruikt standaard het lichtste model en schakelt alleen op als de situatie complexer wordt.</p>
+    <div class="modal-output"><strong>Hoe starten</strong>Gebruik coordinator voor deze wijziging: [jouw vraag]</div>`
+  },
+  discovery: {
+    badge: 'Optioneel', color: '#888780', bg: '#F1EFE8',
+    title: 'Discovery agent',
+    body: `<p>De discovery agent wordt alleen ingezet als de input nog onduidelijk is.</p>
+    <p>Hij verduidelijkt de vraag via vraag en antwoord, zodat de rest van de keten op een helder fundament kan werken.</p>
+    <p>Bij duidelijke input slaat de coordinator deze stap over en start direct met de product owner.</p>`
+  },
+  po: {
+    badge: 'Stap 1', color: '#1D9E75', bg: '#E1F5EE',
+    title: 'Product owner',
+    body: `<p>De product owner is de eerste stap in de hoofdworkflow. Hij zet een technische of vage vraag om naar concrete requirements.</p>
+    <p>Hij maakt:</p>
+    <ul>
+      <li>Een <strong>functioneel ontwerp</strong> — wat het systeem moet doen</li>
+      <li><strong>Requirements</strong> — meetbare eisen waaraan de oplossing moet voldoen</li>
+    </ul>
+    <div class="modal-output"><strong>Opgeslagen in</strong>docs/functioneel_ontwerp/functioneel_ontwerp.md</div>`
+  },
+  architect: {
+    badge: 'Stap 2', color: '#1D9E75', bg: '#E1F5EE',
+    title: 'Architect',
+    body: `<p>De architect vertaalt het functioneel ontwerp naar een technisch ontwerp. Hij bepaalt de structuur van de oplossing.</p>
+    <p>De developer bouwt uitsluitend op basis van wat de architect heeft vastgelegd.</p>
+    <div class="modal-output"><strong>Opgeslagen in</strong>docs/technisch_ontwerp/technisch_ontwerp.md</div>`
+  },
+  dependency: {
+    badge: 'Stap 3', color: '#1D9E75', bg: '#E1F5EE',
+    title: 'Dependency controller',
+    body: `<p>De dependency controller kiest veilige en actuele libraries voor het project. Hij voorkomt dat verouderde of kwetsbare packages worden gebruikt.</p>
+    <div class="modal-output"><strong>Opgeslagen in</strong>logs/security/dependency_audit.md</div>`
+  },
+  unittest: {
+    badge: 'Stap 4', color: '#1D9E75', bg: '#E1F5EE',
+    title: 'Unit test engineer',
+    body: `<p>De unit test engineer schrijft tests op basis van de requirements — voordat de developer begint met bouwen.</p>
+    <p>Dit zorgt voor test-driven development: de developer weet precies wat zijn code moet doen.</p>
+    <div class="modal-output"><strong>Opgeslagen in</strong>docs/testen/test_resultaten.md</div>`
+  },
+  developer: {
+    badge: 'Stap 5', color: '#185FA5', bg: '#E6F1FB',
+    title: 'Developer',
+    body: `<p>De developer bouwt de oplossing. Maar alleen op basis van het technisch ontwerp en de vooraf geschreven tests.</p>
+    <p>Hij schrijft geen eigen interpretatie — hij implementeert wat eerder is vastgelegd. Dit voorkomt scope creep en willekeurige keuzes.</p>`
+  },
+  verification: {
+    badge: 'Stap 6', color: '#1D9E75', bg: '#E1F5EE',
+    title: 'Verification engineer',
+    body: `<p>De verification engineer controleert het runtime gedrag van de code. Hij zoekt foutoorzaken en kijkt of de implementatie doet wat het ontwerp zegt.</p>
+    <div class="modal-output"><strong>Opgeslagen in</strong>logs/verification/verification_audit.md</div>`
+  },
+  tester: {
+    badge: 'Stap 7', color: '#1D9E75', bg: '#E1F5EE',
+    title: 'Tester',
+    body: `<p>De tester controleert functionele scenario's en regressie. Hij test vanuit gebruikersperspectief: werkt het systeem zoals beschreven in de requirements?</p>
+    <div class="modal-output"><strong>Opgeslagen in</strong>docs/testen/test_resultaten.md</div>`
+  },
+  automation: {
+    badge: 'Stap 8', color: '#1D9E75', bg: '#E1F5EE',
+    title: 'Automation walkthrough engineer',
+    body: `<p>De automation walkthrough engineer simuleert de volledige gebruikersflow van begin tot eind. Hij speelt scenario's na zoals een echte gebruiker dat zou doen.</p>
+    <div class="modal-output"><strong>Opgeslagen in</strong>logs/walkthrough/walkthrough_audit.md</div>`
+  },
+  security: {
+    badge: 'Stap 9', color: '#993C1D', bg: '#FAECE7',
+    title: 'Security officer',
+    body: `<p>De security officer controleert de beveiliging van de implementatie. Hij kijkt naar:</p>
+    <ul>
+      <li>Kwetsbaarheden in de code</li>
+      <li>Blootgestelde secrets of credentials</li>
+      <li>Risico's in dependencies</li>
+    </ul>
+    <p>Bij een kritieke security fout stopt het proces automatisch.</p>
+    <div class="modal-output"><strong>Opgeslagen in</strong>logs/security/security_audit.md</div>`
+  },
+  reviewer: {
+    badge: 'Stap 10', color: '#1D9E75', bg: '#E1F5EE',
+    title: 'Reviewer',
+    body: `<p>De reviewer controleert de onderhoudbaarheid van de code en verwijdert onnodige code. Hij kijkt of de codebase begrijpelijk en schoon is.</p>
+    <div class="modal-output"><strong>Opgeslagen in</strong>logs/review/review_audit.md</div>`
+  },
+  performance: {
+    badge: 'Stap 11', color: '#1D9E75', bg: '#E1F5EE',
+    title: 'Performance analyst',
+    body: `<p>De performance analyst kijkt naar de performance en schaalbaarheid van de oplossing. Kan de code omgaan met groeiende load? Zijn er bottlenecks?</p>`
+  },
+  docs: {
+    badge: 'Stap 12', color: '#1D9E75', bg: '#E1F5EE',
+    title: 'Documentation agent',
+    body: `<p>De documentation agent maakt de handleiding en release documentatie. Alles wordt gedocumenteerd zodat het traceerbaar is naar de requirements.</p>
+    <div class="modal-output"><strong>Opgeslagen in</strong>docs/handleiding/ en docs/releases/</div>`
+  },
+  coverage: {
+    badge: 'Stap 13', color: '#1D9E75', bg: '#E1F5EE',
+    title: 'Coverage controller',
+    body: `<p>De coverage controller controleert of de testdekking voldoende is. Bij een kritieke coverage fout stopt het proces automatisch.</p>
+    <div class="modal-output"><strong>Opgeslagen in</strong>docs/testen/test_resultaten.md</div>`
+  },
+  release: {
+    badge: 'Eindpunt', color: '#3B6D11', bg: '#EAF3DE',
+    title: 'Release manager',
+    body: `<p>De release manager is de poortwachter. Pas na zijn akkoord mag code naar Git.</p>
+    <p>Hij controleert of:</p>
+    <ul>
+      <li>Alle gewijzigde bestanden logisch zijn</li>
+      <li>Release documentatie aanwezig is</li>
+      <li>Alles traceerbaar is naar requirements</li>
+    </ul>
+    <div class="modal-output"><strong>Opgeslagen in</strong>docs/releases/</div>`
+  },
+  process: {
+    badge: 'Conditioneel', color: '#854F0B', bg: '#FAEEDA',
+    title: 'Process improvement agent',
+    body: `<p>Wordt geactiveerd bij herhaalde fouten of blokkades. Hij onderzoekt de root cause en stelt rule-wijzigingen of nieuwe agents voor.</p>
+    <p>Zo wordt de workflow steeds beter na iedere cyclus.</p>`
+  },
+  cleanup: {
+    badge: 'Conditioneel', color: '#854F0B', bg: '#FAEEDA',
+    title: 'Cleanup agent',
+    body: `<p>Wordt ingezet als er veel overbodige code aanwezig is. Hij ruimt op zonder de functionaliteit te raken.</p>`
+  },
+  migration: {
+    badge: 'Conditioneel', color: '#854F0B', bg: '#FAEEDA',
+    title: 'Migration specialist',
+    body: `<p>Wordt ingezet bij major upgrades, database wijzigingen of legacy migratie. Hij begeleidt complexe overstappen die extra kennis vereisen.</p>`
+  },
+  incident: {
+    badge: 'Conditioneel', color: '#854F0B', bg: '#FAEEDA',
+    title: 'Incident analyst',
+    body: `<p>Wordt geactiveerd bij onverwachte incidenten of regressies. Hij analyseert wat er is misgegaan en stelt herstelstappen voor.</p>`
+  },
+  ux: {
+    badge: 'Conditioneel', color: '#854F0B', bg: '#FAEEDA',
+    title: 'UX validator',
+    body: `<p>Wordt ingezet bij nieuwe schermen of gebruikersflows. Hij controleert of de UX aansluit op de verwachtingen van de gebruiker.</p>`
+  }
+};
+
+function show(key) {
+  const d = data[key];
+  if (!d) return;
+  document.getElementById('modal-badge').textContent = d.badge;
+  document.getElementById('modal-badge').style.background = d.bg;
+  document.getElementById('modal-badge').style.color = d.color;
+  document.getElementById('modal-title').textContent = d.title;
+  document.getElementById('modal-body').innerHTML = d.body;
+  document.getElementById('overlay').classList.add('active');
+}
+
+function closeModal(e) {
+  if (e.target === document.getElementById('overlay')) closeAll();
+}
+
+function closeAll() {
+  document.getElementById('overlay').classList.remove('active');
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAll(); });
+</script>
+</body>
+</html>
